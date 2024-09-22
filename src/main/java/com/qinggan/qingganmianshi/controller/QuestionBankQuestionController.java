@@ -1,5 +1,7 @@
 package com.qinggan.qingganmianshi.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.qinggan.qingganmianshi.annotation.AuthCheck;
 import com.qinggan.qingganmianshi.common.BaseResponse;
@@ -11,6 +13,7 @@ import com.qinggan.qingganmianshi.exception.BusinessException;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
 import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionAddRequest;
 import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionQueryRequest;
+import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionRemoveRequest;
 import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionUpdateRequest;
 import com.qinggan.qingganmianshi.model.entity.QuestionBankQuestion;
 import com.qinggan.qingganmianshi.model.entity.User;
@@ -48,6 +51,7 @@ public class QuestionBankQuestionController {
      * @return
      */
     @PostMapping("/add")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Long> addQuestionBankQuestion(@RequestBody QuestionBankQuestionAddRequest questionBankQuestionAddRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(questionBankQuestionAddRequest == null, ErrorCode.PARAMS_ERROR);
         // todo 在此处将实体类和 DTO 进行转换
@@ -74,6 +78,7 @@ public class QuestionBankQuestionController {
      * @return
      */
     @PostMapping("/delete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> deleteQuestionBankQuestion(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -200,4 +205,23 @@ public class QuestionBankQuestionController {
     }
 
     // endregion
+
+    /**
+     * 移除题目题库关联
+     * @param questionBankQuestionRemoveRequest
+     * @return
+     */
+    public BaseResponse<Boolean> removeQuestionBankQuestion(@RequestBody QuestionBankQuestionRemoveRequest questionBankQuestionRemoveRequest) {
+        ThrowUtils.throwIf(questionBankQuestionRemoveRequest == null, ErrorCode.PARAMS_ERROR);
+        //获取到要移除的(questionId,questionBankId)
+        Long questionId = questionBankQuestionRemoveRequest.getQuestionId();
+        Long questionBankId = questionBankQuestionRemoveRequest.getQuestionBankId();
+        //查找到相应记录
+        LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                .eq(QuestionBankQuestion::getQuestionId, questionId)
+                .eq(QuestionBankQuestion::getQuestionBankId, questionBankId);
+        //移除记录
+        boolean remove = questionBankQuestionService.remove(lambdaQueryWrapper);
+        return ResultUtils.success(remove);
+    }
 }

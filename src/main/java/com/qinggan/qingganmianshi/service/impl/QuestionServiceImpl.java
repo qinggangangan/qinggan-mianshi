@@ -1,18 +1,26 @@
 package com.qinggan.qingganmianshi.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.qinggan.qingganmianshi.annotation.AuthCheck;
+import com.qinggan.qingganmianshi.common.BaseResponse;
 import com.qinggan.qingganmianshi.common.ErrorCode;
+import com.qinggan.qingganmianshi.common.ResultUtils;
 import com.qinggan.qingganmianshi.constant.CommonConstant;
+import com.qinggan.qingganmianshi.constant.UserConstant;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
 import com.qinggan.qingganmianshi.mapper.QuestionMapper;
 import com.qinggan.qingganmianshi.model.dto.question.QuestionQueryRequest;
 import com.qinggan.qingganmianshi.model.entity.Question;
+import com.qinggan.qingganmianshi.model.entity.QuestionBankQuestion;
 import com.qinggan.qingganmianshi.model.entity.User;
 import com.qinggan.qingganmianshi.model.vo.QuestionVO;
 import com.qinggan.qingganmianshi.model.vo.UserVO;
+import com.qinggan.qingganmianshi.service.QuestionBankQuestionService;
 import com.qinggan.qingganmianshi.service.QuestionService;
 import com.qinggan.qingganmianshi.service.UserService;
 import com.qinggan.qingganmianshi.utils.SqlUtils;
@@ -20,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -37,6 +47,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private QuestionBankQuestionService questionBankQuestionService;
 
     /**
      * 校验数据
@@ -133,23 +146,6 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         }
         UserVO userVO = userService.getUserVO(user);
         questionVO.setUser(userVO);
-        // 2. 已登录，获取用户点赞、收藏状态
-        /*long questionId = question.getId();
-        User loginUser = userService.getLoginUserPermitNull(request);
-        if (loginUser != null) {
-            // 获取点赞
-            QueryWrapper<QuestionThumb> questionThumbQueryWrapper = new QueryWrapper<>();
-            questionThumbQueryWrapper.in("questionId", questionId);
-            questionThumbQueryWrapper.eq("userId", loginUser.getId());
-            QuestionThumb questionThumb = questionThumbMapper.selectOne(questionThumbQueryWrapper);
-            questionVO.setHasThumb(questionThumb != null);
-            // 获取收藏
-            QueryWrapper<QuestionFavour> questionFavourQueryWrapper = new QueryWrapper<>();
-            questionFavourQueryWrapper.in("questionId", questionId);
-            questionFavourQueryWrapper.eq("userId", loginUser.getId());
-            QuestionFavour questionFavour = questionFavourMapper.selectOne(questionFavourQueryWrapper);
-            questionVO.setHasFavour(questionFavour != null);
-        }*/
         // endregion
 
         return questionVO;
@@ -180,26 +176,6 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         Set<Long> userIdSet = questionList.stream().map(Question::getUserId).collect(Collectors.toSet());
         Map<Long, List<User>> userIdUserListMap = userService.listByIds(userIdSet).stream()
                 .collect(Collectors.groupingBy(User::getId));
-        // 2. 已登录，获取用户点赞、收藏状态
-        /*Map<Long, Boolean> questionIdHasThumbMap = new HashMap<>();
-        Map<Long, Boolean> questionIdHasFavourMap = new HashMap<>();
-        User loginUser = userService.getLoginUserPermitNull(request);
-        if (loginUser != null) {
-            Set<Long> questionIdSet = questionList.stream().map(Question::getId).collect(Collectors.toSet());
-            loginUser = userService.getLoginUser(request);
-            // 获取点赞
-            QueryWrapper<QuestionThumb> questionThumbQueryWrapper = new QueryWrapper<>();
-            questionThumbQueryWrapper.in("questionId", questionIdSet);
-            questionThumbQueryWrapper.eq("userId", loginUser.getId());
-            List<QuestionThumb> questionQuestionThumbList = questionThumbMapper.selectList(questionThumbQueryWrapper);
-            questionQuestionThumbList.forEach(questionQuestionThumb -> questionIdHasThumbMap.put(questionQuestionThumb.getQuestionId(), true));
-            // 获取收藏
-            QueryWrapper<QuestionFavour> questionFavourQueryWrapper = new QueryWrapper<>();
-            questionFavourQueryWrapper.in("questionId", questionIdSet);
-            questionFavourQueryWrapper.eq("userId", loginUser.getId());
-            List<QuestionFavour> questionFavourList = questionFavourMapper.selectList(questionFavourQueryWrapper);
-            questionFavourList.forEach(questionFavour -> questionIdHasFavourMap.put(questionFavour.getQuestionId(), true));
-        }*/
         // 填充信息
         questionVOList.forEach(questionVO -> {
             Long userId = questionVO.getUserId();
@@ -208,8 +184,6 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
                 user = userIdUserListMap.get(userId).get(0);
             }
             questionVO.setUser(userService.getUserVO(user));
-//            questionVO.setHasThumb(questionIdHasThumbMap.getOrDefault(questionVO.getId(), false));
-//            questionVO.setHasFavour(questionIdHasFavourMap.getOrDefault(questionVO.getId(), false));
         });
         // endregion
 
@@ -217,4 +191,33 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         return questionVOPage;
     }
 
+    /**
+     * 分页获取题目列表（仅管理员可用）
+     *
+     * @param questionQueryRequest
+     * @return
+     */
+    public Page<Question> listQuestionByPage(QuestionQueryRequest questionQueryRequest) {
+        long current = questionQueryRequest.getCurrent();
+        long size = questionQueryRequest.getPageSize();
+        //题目表的查询条件
+        QueryWrapper<Question> queryWrapper = this.getQueryWrapper(questionQueryRequest);
+        //根据题库id查询题目列表
+        Long questionBankId = questionQueryRequest.getQuestionBankId();
+        if(questionBankId!=null){
+            LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                    .select(QuestionBankQuestion::getQuestionId)
+                    .eq(QuestionBankQuestion::getQuestionBankId, questionBankId);
+            List<QuestionBankQuestion> questionList = questionBankQuestionService.list(lambdaQueryWrapper);
+            if(CollUtil.isNotEmpty(questionList)){
+                Set<Long> questionIdList = questionList.stream().map(QuestionBankQuestion::getQuestionId)
+                        .collect(Collectors.toSet());
+                queryWrapper.in("id",questionIdList);
+            }
+        }
+
+        // 查询数据库
+        Page<Question> questionPage = this.page(new Page<>(current, size), queryWrapper);
+        return questionPage;
+    }
 }

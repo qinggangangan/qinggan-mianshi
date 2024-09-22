@@ -8,11 +8,15 @@ import com.qinggan.qingganmianshi.common.ErrorCode;
 import com.qinggan.qingganmianshi.constant.CommonConstant;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
 import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionQueryRequest;
+import com.qinggan.qingganmianshi.model.entity.Question;
+import com.qinggan.qingganmianshi.model.entity.QuestionBank;
 import com.qinggan.qingganmianshi.model.entity.QuestionBankQuestion;
 import com.qinggan.qingganmianshi.model.entity.User;
 import com.qinggan.qingganmianshi.model.vo.QuestionBankQuestionVO;
 import com.qinggan.qingganmianshi.model.vo.UserVO;
 import com.qinggan.qingganmianshi.service.QuestionBankQuestionService;
+import com.qinggan.qingganmianshi.service.QuestionBankService;
+import com.qinggan.qingganmianshi.service.QuestionService;
 import com.qinggan.qingganmianshi.service.UserService;
 import com.qinggan.qingganmianshi.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +40,12 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<com.qinggan.qin
     @Resource
     private UserService userService;
 
+    @Resource
+    private QuestionService questionService;
+
+    @Resource
+    private QuestionBankService questionBankService;
+
     /**
      * 校验数据
      *
@@ -45,18 +55,18 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<com.qinggan.qin
     @Override
     public void validQuestionBankQuestion(QuestionBankQuestion questionBankQuestion, boolean add) {
         ThrowUtils.throwIf(questionBankQuestion == null, ErrorCode.PARAMS_ERROR);
-        // todo 从对象中取值
-//        String title = questionBankQuestion.getTitle();
-        // 创建数据时，参数不能为空
-        if (add) {
-            // todo 补充校验规则
-//            ThrowUtils.throwIf(StringUtils.isBlank(title), ErrorCode.PARAMS_ERROR);
+        //题库和题目必须都存在
+        Long questionId = questionBankQuestion.getQuestionId();
+        if(questionId!= null){
+            Question question = questionService.getById(questionId);
+            ThrowUtils.throwIf(question == null, ErrorCode.NOT_FOUND_ERROR,"题目不存在");
         }
-        // 修改数据时，有参数则校验
-        // todo 补充校验规则
-//        if (StringUtils.isNotBlank(title)) {
-//            ThrowUtils.throwIf(title.length() > 80, ErrorCode.PARAMS_ERROR, "标题过长");
-//        }
+
+        Long questionBankId = questionBankQuestion.getQuestionBankId();
+        if(questionBankId!= null){
+            QuestionBank questionBank = questionBankService.getById(questionBankId);
+            ThrowUtils.throwIf(questionBank == null, ErrorCode.NOT_FOUND_ERROR,"题库不存在");
+        }
     }
 
     /**
