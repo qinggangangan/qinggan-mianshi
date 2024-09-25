@@ -6,6 +6,7 @@ import com.qinggan.qingganmianshi.model.dto.user.UserQueryRequest;
 import com.qinggan.qingganmianshi.model.entity.User;
 import com.qinggan.qingganmianshi.model.vo.LoginUserVO;
 import com.qinggan.qingganmianshi.model.vo.UserVO;
+
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
@@ -117,4 +118,19 @@ public interface UserService extends IService<User> {
      */
     QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
 
+    /**
+     * 添加用户签到记录
+     * @param userId 签到的用户Id
+     * @return 当日用户是否已经签到成功
+     */
+    boolean addUserSignIn(long userId);
+
+    /**
+     * 获取用户某年的签到记录
+     *
+     * @param userId 用户id
+     * @param year   要获取的年份
+     * @return 用户当年的签到记录
+     */
+    List<Integer> getUserSignInRecords(long userId, Integer year);
 }

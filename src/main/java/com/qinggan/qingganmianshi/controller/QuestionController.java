@@ -121,6 +121,10 @@ public class QuestionController {
         // todo 在此处将实体类和 DTO 进行转换
         Question question = new Question();
         BeanUtils.copyProperties(questionUpdateRequest, question);
+        List<String> tags = questionUpdateRequest.getTags();
+        if (tags != null) {
+            question.setTags(JSONUtil.toJsonStr(tags));
+        }
         // 数据校验
         questionService.validQuestion(question, false);
         // 判断是否存在
@@ -150,7 +154,7 @@ public class QuestionController {
     }
 
     /**
-     * 分页获取题目列表（仅管理员可用）
+     * 分页获取题目列表（仅管理员可用）（根据题库id查询题目列表）
      *
      * @param questionQueryRequest
      * @return
@@ -176,7 +180,7 @@ public class QuestionController {
         long current = questionQueryRequest.getCurrent();
         long size = questionQueryRequest.getPageSize();
         // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(size > 200, ErrorCode.PARAMS_ERROR);
         // 查询数据库
         Page<Question> questionPage = questionService.page(new Page<>(current, size),
                 questionService.getQueryWrapper(questionQueryRequest));
@@ -247,4 +251,13 @@ public class QuestionController {
     }
 
     // endregion
+//    @PostMapping("/search/page/vo")
+//    public BaseResponse<Page<QuestionVO>> searchQuestionVOByPage(@RequestBody QuestionQueryRequest questionQueryRequest,
+//                                                                 HttpServletRequest request) {
+//        long size = questionQueryRequest.getPageSize();
+//        // 限制爬虫
+//        ThrowUtils.throwIf(size > 200, ErrorCode.PARAMS_ERROR);
+//        Page<Question> questionPage = questionService.searchFromEs(questionQueryRequest);
+//        return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
+//    }
 }

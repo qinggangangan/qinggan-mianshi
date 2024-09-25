@@ -211,6 +211,7 @@ public class QuestionBankQuestionController {
      * @param questionBankQuestionRemoveRequest
      * @return
      */
+    @PostMapping("/remove")
     public BaseResponse<Boolean> removeQuestionBankQuestion(@RequestBody QuestionBankQuestionRemoveRequest questionBankQuestionRemoveRequest) {
         ThrowUtils.throwIf(questionBankQuestionRemoveRequest == null, ErrorCode.PARAMS_ERROR);
         //获取到要移除的(questionId,questionBankId)

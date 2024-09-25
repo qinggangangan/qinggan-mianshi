@@ -21,7 +21,9 @@ import com.qinggan.qingganmianshi.model.vo.LoginUserVO;
 import com.qinggan.qingganmianshi.model.vo.UserVO;
 import com.qinggan.qingganmianshi.service.UserService;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -315,5 +317,33 @@ public class UserController {
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 添加用户签到记录
+     *
+     * @param
+     * @param request
+     * @return
+     */
+    @PostMapping("/add/sign_in")
+    public BaseResponse<Boolean> addSignInRecord(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        boolean signInResult = userService.addUserSignIn(loginUser.getId());
+        return ResultUtils.success(signInResult);
+    }
+
+    /**
+     * 获取用户签到记录
+     *
+     * @param
+     * @param request
+     * @return
+     */
+    @GetMapping("/get/sign_in")
+    public BaseResponse<List<Integer> > getUserSignInRecords(Integer year, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        List<Integer> userSignInRecords = userService.getUserSignInRecords(loginUser.getId(), year);
+        return ResultUtils.success(userSignInRecords);
     }
 }
