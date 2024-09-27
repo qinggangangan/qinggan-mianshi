@@ -251,13 +251,31 @@ public class QuestionController {
     }
 
     // endregion
-//    @PostMapping("/search/page/vo")
-//    public BaseResponse<Page<QuestionVO>> searchQuestionVOByPage(@RequestBody QuestionQueryRequest questionQueryRequest,
-//                                                                 HttpServletRequest request) {
-//        long size = questionQueryRequest.getPageSize();
-//        // 限制爬虫
-//        ThrowUtils.throwIf(size > 200, ErrorCode.PARAMS_ERROR);
-//        Page<Question> questionPage = questionService.searchFromEs(questionQueryRequest);
-//        return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
-//    }
+    /**
+     * 从 ES 查询题目
+     *
+     * @param questionQueryRequest
+     * @return
+     */
+    @PostMapping("/search/page/vo")
+    public BaseResponse<Page<QuestionVO>> searchQuestionVOByPage(@RequestBody QuestionQueryRequest questionQueryRequest,
+                                                                 HttpServletRequest request) {
+        long size = questionQueryRequest.getPageSize();
+        // 限制爬虫
+        ThrowUtils.throwIf(size > 200, ErrorCode.PARAMS_ERROR);
+        try {
+            Page<Question> questionPage = questionService.searchFromEs(questionQueryRequest);
+            return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
+        }catch (RuntimeException e){
+            log.error("调用ES失败，做降级处理",e);
+            long current = questionQueryRequest.getCurrent();
+            // 限制爬虫
+            ThrowUtils.throwIf(size > 200, ErrorCode.PARAMS_ERROR);
+            // 查询数据库
+            Page<Question> questionPage = questionService.page(new Page<>(current, size),
+                    questionService.getQueryWrapper(questionQueryRequest));
+            // 获取封装类
+            return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
+        }
+    }
 }
