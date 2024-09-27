@@ -1,11 +1,16 @@
 package com.qinggan.qingganmianshi.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.qinggan.qingganmianshi.common.ErrorCode;
 import com.qinggan.qingganmianshi.constant.CommonConstant;
+import com.qinggan.qingganmianshi.exception.BusinessException;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
 import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionQueryRequest;
 import com.qinggan.qingganmianshi.model.entity.Question;
@@ -23,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -127,25 +133,6 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<com.qinggan.qin
         }
         UserVO userVO = userService.getUserVO(user);
         questionBankQuestionVO.setUser(userVO);
-        // 2. 已登录，获取用户点赞、收藏状态
-        /*long questionBankQuestionId = questionBankQuestion.getId();
-        User loginUser = userService.getLoginUserPermitNull(request);
-        if (loginUser != null) {
-            // 获取点赞
-            QueryWrapper<QuestionBankQuestionThumb> questionBankQuestionThumbQueryWrapper = new QueryWrapper<>();
-            questionBankQuestionThumbQueryWrapper.in("questionBankQuestionId", questionBankQuestionId);
-            questionBankQuestionThumbQueryWrapper.eq("userId", loginUser.getId());
-            QuestionBankQuestionThumb questionBankQuestionThumb = questionBankQuestionThumbMapper.selectOne(questionBankQuestionThumbQueryWrapper);
-            questionBankQuestionVO.setHasThumb(questionBankQuestionThumb != null);
-            // 获取收藏
-            QueryWrapper<QuestionBankQuestionFavour> questionBankQuestionFavourQueryWrapper = new QueryWrapper<>();
-            questionBankQuestionFavourQueryWrapper.in("questionBankQuestionId", questionBankQuestionId);
-            questionBankQuestionFavourQueryWrapper.eq("userId", loginUser.getId());
-            QuestionBankQuestionFavour questionBankQuestionFavour = questionBankQuestionFavourMapper.selectOne(questionBankQuestionFavourQueryWrapper);
-            questionBankQuestionVO.setHasFavour(questionBankQuestionFavour != null);
-        }*/
-        // endregion
-
         return questionBankQuestionVO;
     }
 
@@ -174,26 +161,6 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<com.qinggan.qin
         Set<Long> userIdSet = questionBankQuestionList.stream().map(QuestionBankQuestion::getUserId).collect(Collectors.toSet());
         Map<Long, List<User>> userIdUserListMap = userService.listByIds(userIdSet).stream()
                 .collect(Collectors.groupingBy(User::getId));
-        // 2. 已登录，获取用户点赞、收藏状态
-        /*Map<Long, Boolean> questionBankQuestionIdHasThumbMap = new HashMap<>();
-        Map<Long, Boolean> questionBankQuestionIdHasFavourMap = new HashMap<>();
-        User loginUser = userService.getLoginUserPermitNull(request);
-        if (loginUser != null) {
-            Set<Long> questionBankQuestionIdSet = questionBankQuestionList.stream().map(QuestionBankQuestion::getId).collect(Collectors.toSet());
-            loginUser = userService.getLoginUser(request);
-            // 获取点赞
-            QueryWrapper<QuestionBankQuestionThumb> questionBankQuestionThumbQueryWrapper = new QueryWrapper<>();
-            questionBankQuestionThumbQueryWrapper.in("questionBankQuestionId", questionBankQuestionIdSet);
-            questionBankQuestionThumbQueryWrapper.eq("userId", loginUser.getId());
-            List<QuestionBankQuestionThumb> questionBankQuestionQuestionBankQuestionThumbList = questionBankQuestionThumbMapper.selectList(questionBankQuestionThumbQueryWrapper);
-            questionBankQuestionQuestionBankQuestionThumbList.forEach(questionBankQuestionQuestionBankQuestionThumb -> questionBankQuestionIdHasThumbMap.put(questionBankQuestionQuestionBankQuestionThumb.getQuestionBankQuestionId(), true));
-            // 获取收藏
-            QueryWrapper<QuestionBankQuestionFavour> questionBankQuestionFavourQueryWrapper = new QueryWrapper<>();
-            questionBankQuestionFavourQueryWrapper.in("questionBankQuestionId", questionBankQuestionIdSet);
-            questionBankQuestionFavourQueryWrapper.eq("userId", loginUser.getId());
-            List<QuestionBankQuestionFavour> questionBankQuestionFavourList = questionBankQuestionFavourMapper.selectList(questionBankQuestionFavourQueryWrapper);
-            questionBankQuestionFavourList.forEach(questionBankQuestionFavour -> questionBankQuestionIdHasFavourMap.put(questionBankQuestionFavour.getQuestionBankQuestionId(), true));
-        }*/
         // 填充信息
         questionBankQuestionVOList.forEach(questionBankQuestionVO -> {
             Long userId = questionBankQuestionVO.getUserId();
@@ -202,8 +169,6 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<com.qinggan.qin
                 user = userIdUserListMap.get(userId).get(0);
             }
             questionBankQuestionVO.setUser(userService.getUserVO(user));
-//            questionBankQuestionVO.setHasThumb(questionBankQuestionIdHasThumbMap.getOrDefault(questionBankQuestionVO.getId(), false));
-//            questionBankQuestionVO.setHasFavour(questionBankQuestionIdHasFavourMap.getOrDefault(questionBankQuestionVO.getId(), false));
         });
         // endregion
 
@@ -211,4 +176,62 @@ public class QuestionBankQuestionServiceImpl extends ServiceImpl<com.qinggan.qin
         return questionBankQuestionVOPage;
     }
 
+    /**
+     * 批量向题库中添加题目
+     * @param questionIdList 需要添加的题目id列表
+     * @param questionBankId 添加到哪个题库id
+     * @param loginUser 哪个用户添加的
+     * @return
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchAddQuestionsToBank(List<Long> questionIdList, Long questionBankId, User loginUser){
+        //验证传入参数的合法性
+        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR, "题目id列表为空");
+        ThrowUtils.throwIf(questionBankId==null || questionBankId<=0, ErrorCode.PARAMS_ERROR, "题库id为空");
+        ThrowUtils.throwIf(loginUser==null, ErrorCode.NOT_LOGIN_ERROR);
+
+        //验证数据库中是否有传入的题目id及题库id
+        List<Question> questionList = questionService.listByIds(questionIdList);
+        List<Long> validQuestionIdList = questionList.stream().map(Question::getId).collect(Collectors.toList());
+        ThrowUtils.throwIf(CollUtil.isEmpty(validQuestionIdList), ErrorCode.NOT_FOUND_ERROR, "合法的题目列表为空");
+        QuestionBank validQuestionBank = questionBankService.getById(questionBankId);
+        ThrowUtils.throwIf(validQuestionBank==null, ErrorCode.NOT_FOUND_ERROR, "题库为空");
+
+        //执行插入逻辑
+        for(Long questionId : validQuestionIdList){
+            QuestionBankQuestion questionBankQuestion = new QuestionBankQuestion();
+            questionBankQuestion.setQuestionBankId(questionBankId);
+            questionBankQuestion.setQuestionId(questionId);
+            questionBankQuestion.setUserId(loginUser.getId());
+            boolean result = this.save(questionBankQuestion);
+            if(!result){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "向题库添加题目失败");
+            }
+        }
+    }
+
+    /**
+     * 批量从题库中删除题目
+     * @param questionIdList
+     * @param questionBankId
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void batchRemoveQuestionsFromBank(List<Long> questionIdList, Long questionBankId) {
+        //验证传入参数的合法性
+        ThrowUtils.throwIf(CollUtil.isEmpty(questionIdList), ErrorCode.PARAMS_ERROR, "题目id列表为空");
+        ThrowUtils.throwIf(questionBankId==null || questionBankId<=0, ErrorCode.PARAMS_ERROR, "题库id为空");
+
+        //执行删除逻辑
+        for(Long questionId : questionIdList){
+            LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                    .eq(QuestionBankQuestion::getQuestionBankId, questionBankId)
+                    .eq(QuestionBankQuestion::getQuestionId, questionId);
+            boolean result = this.remove(lambdaQueryWrapper);
+            if(!result){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "从题库中删除题目失败");
+            }
+        }
+    }
 }

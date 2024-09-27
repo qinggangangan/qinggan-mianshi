@@ -5,10 +5,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionQueryRequest;
 import com.qinggan.qingganmianshi.model.entity.QuestionBankQuestion;
+import com.qinggan.qingganmianshi.model.entity.User;
 import com.qinggan.qingganmianshi.model.vo.QuestionBankQuestionVO;
 
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * 题库题目关联服务
@@ -48,4 +50,20 @@ public interface QuestionBankQuestionService extends IService<QuestionBankQuesti
      * @return
      */
     Page<QuestionBankQuestionVO> getQuestionBankQuestionVOPage(Page<QuestionBankQuestion> questionBankQuestionPage, HttpServletRequest request);
+
+    /**
+     * 批量向题库中添加题目
+     * @param questionIdList 需要添加的题目id列表
+     * @param questionBankId 添加到哪个题库id
+     * @param loginUser 哪个用户添加的
+     * @return
+     */
+    void batchAddQuestionsToBank(List<Long> questionIdList, Long questionBankId, User loginUser);
+
+    /**
+     * 批量从题库中删除题目
+     * @param questionIdList
+     * @param questionBankId
+     */
+    void batchRemoveQuestionsFromBank(List<Long> questionIdList, Long questionBankId);
 }

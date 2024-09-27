@@ -10,10 +10,7 @@ import com.qinggan.qingganmianshi.common.ResultUtils;
 import com.qinggan.qingganmianshi.constant.UserConstant;
 import com.qinggan.qingganmianshi.exception.BusinessException;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
-import com.qinggan.qingganmianshi.model.dto.question.QuestionAddRequest;
-import com.qinggan.qingganmianshi.model.dto.question.QuestionEditRequest;
-import com.qinggan.qingganmianshi.model.dto.question.QuestionQueryRequest;
-import com.qinggan.qingganmianshi.model.dto.question.QuestionUpdateRequest;
+import com.qinggan.qingganmianshi.model.dto.question.*;
 import com.qinggan.qingganmianshi.model.entity.Question;
 import com.qinggan.qingganmianshi.model.entity.User;
 import com.qinggan.qingganmianshi.model.vo.QuestionVO;
@@ -277,5 +274,14 @@ public class QuestionController {
             // 获取封装类
             return ResultUtils.success(questionService.getQuestionVOPage(questionPage, request));
         }
+    }
+
+    @PostMapping("/delete/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchDeleteQuestions(@RequestBody QuestionBatchDeleteRequest questionBatchDeleteRequest, HttpServletRequest request){
+        ThrowUtils.throwIf(questionBatchDeleteRequest==null, ErrorCode.PARAMS_ERROR);
+        List<Long> questionIdList = questionBatchDeleteRequest.getQuestionIdList();
+        questionService.batchDeleteQuestions(questionIdList);
+        return ResultUtils.success(true);
     }
 }

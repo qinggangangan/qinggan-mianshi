@@ -1,6 +1,7 @@
 package com.qinggan.qingganmianshi.job.cycle;
 
 import cn.hutool.core.collection.CollUtil;
+import com.qinggan.qingganmianshi.annotation.DistributedLock;
 import com.qinggan.qingganmianshi.esdao.QuestionEsDao;
 import com.qinggan.qingganmianshi.mapper.QuestionMapper;
 import com.qinggan.qingganmianshi.model.dto.question.QuestionEsDTO;
@@ -32,6 +33,7 @@ public class InSyncQuestionToEs {
     /**
      * 每分钟执行一次
      */
+    @DistributedLock(key = "inSync")
     @Scheduled(fixedRate = 60 * 1000)
     public void run() {
         // 查询近 5 分钟内的数据

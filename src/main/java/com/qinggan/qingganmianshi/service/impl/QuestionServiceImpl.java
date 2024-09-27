@@ -12,6 +12,7 @@ import com.qinggan.qingganmianshi.common.ErrorCode;
 import com.qinggan.qingganmianshi.common.ResultUtils;
 import com.qinggan.qingganmianshi.constant.CommonConstant;
 import com.qinggan.qingganmianshi.constant.UserConstant;
+import com.qinggan.qingganmianshi.exception.BusinessException;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
 import com.qinggan.qingganmianshi.mapper.QuestionMapper;
 import com.qinggan.qingganmianshi.model.dto.question.QuestionEsDTO;
@@ -40,6 +41,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -312,6 +314,31 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         }
         page.setRecords(resourceList);
         return page;
+    }
+
+    /**
+     * 批量删除题目
+     * @param questionIdList
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchDeleteQuestions(List<Long> questionIdList) {
+        if (CollUtil.isEmpty(questionIdList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "要删除的题目列表为空");
+        }
+        for (Long questionId : questionIdList) {
+            boolean result = this.removeById(questionId);
+            if (!result) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "删除题目失败");
+            }
+            // 移除题目题库关系
+            LambdaQueryWrapper<QuestionBankQuestion> lambdaQueryWrapper = Wrappers.lambdaQuery(QuestionBankQuestion.class)
+                    .eq(QuestionBankQuestion::getQuestionId, questionId);
+            result = questionBankQuestionService.remove(lambdaQueryWrapper);
+            if (!result) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "删除题目题库关联失败");
+            }
+        }
     }
 
 }

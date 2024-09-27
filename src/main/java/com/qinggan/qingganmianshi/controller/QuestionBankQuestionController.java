@@ -11,10 +11,7 @@ import com.qinggan.qingganmianshi.common.ResultUtils;
 import com.qinggan.qingganmianshi.constant.UserConstant;
 import com.qinggan.qingganmianshi.exception.BusinessException;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
-import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionAddRequest;
-import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionQueryRequest;
-import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionRemoveRequest;
-import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQuestionUpdateRequest;
+import com.qinggan.qingganmianshi.model.dto.questionbankquestion.*;
 import com.qinggan.qingganmianshi.model.entity.QuestionBankQuestion;
 import com.qinggan.qingganmianshi.model.entity.User;
 import com.qinggan.qingganmianshi.model.vo.QuestionBankQuestionVO;
@@ -22,10 +19,12 @@ import com.qinggan.qingganmianshi.service.QuestionBankQuestionService;
 import com.qinggan.qingganmianshi.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.http.HttpRequest;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * 题库题目关联接口
@@ -224,5 +223,29 @@ public class QuestionBankQuestionController {
         //移除记录
         boolean remove = questionBankQuestionService.remove(lambdaQueryWrapper);
         return ResultUtils.success(remove);
+    }
+
+
+    @PostMapping("/add/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchAddQuestionsToBank(@RequestBody QuestionBankQuestionBatchAddRequest questionBankQuestionBatchAddRequest,
+                                                                 HttpServletRequest request){
+        ThrowUtils.throwIf(questionBankQuestionBatchAddRequest==null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        Long questionBankId = questionBankQuestionBatchAddRequest.getQuestionBankId();
+        List<Long> questionIdList = questionBankQuestionBatchAddRequest.getQuestionIdList();
+        questionBankQuestionService.batchAddQuestionsToBank(questionIdList,questionBankId,loginUser);
+        return ResultUtils.success(true);
+    }
+
+    @PostMapping("/remove/batch")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchRemoveQuestionsFromBank(@RequestBody QuestionBankQuestionBatchRemoveRequest questionBankQuestionBatchRemoveRequest,
+                                                                 HttpServletRequest request){
+        ThrowUtils.throwIf(questionBankQuestionBatchRemoveRequest==null, ErrorCode.PARAMS_ERROR);
+        Long questionBankId = questionBankQuestionBatchRemoveRequest.getQuestionBankId();
+        List<Long> questionIdList = questionBankQuestionBatchRemoveRequest.getQuestionIdList();
+        questionBankQuestionService.batchRemoveQuestionsFromBank(questionIdList,questionBankId);
+        return ResultUtils.success(true);
     }
 }
