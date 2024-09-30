@@ -7,6 +7,7 @@ import com.qinggan.qingganmianshi.model.dto.questionbankquestion.QuestionBankQue
 import com.qinggan.qingganmianshi.model.entity.QuestionBankQuestion;
 import com.qinggan.qingganmianshi.model.entity.User;
 import com.qinggan.qingganmianshi.model.vo.QuestionBankQuestionVO;
+import org.springframework.transaction.annotation.Transactional;
 
 
 import javax.servlet.http.HttpServletRequest;
@@ -50,6 +51,9 @@ public interface QuestionBankQuestionService extends IService<QuestionBankQuesti
      * @return
      */
     Page<QuestionBankQuestionVO> getQuestionBankQuestionVOPage(Page<QuestionBankQuestion> questionBankQuestionPage, HttpServletRequest request);
+
+    @Transactional(rollbackFor = Exception.class)
+    void batchAddQuestionsToBankInner(List<QuestionBankQuestion> questionBankQuestionList);
 
     /**
      * 批量向题库中添加题目
