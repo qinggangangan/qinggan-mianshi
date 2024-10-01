@@ -1,5 +1,6 @@
 package com.qinggan.qingganmianshi.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -8,6 +9,7 @@ import com.qinggan.qingganmianshi.constant.RedisKeyConstant;
 import com.qinggan.qingganmianshi.constant.UserConstant;
 import com.qinggan.qingganmianshi.exception.BusinessException;
 import com.qinggan.qingganmianshi.mapper.UserMapper;
+import com.qinggan.qingganmianshi.satoken.DeviceUtils;
 import com.qinggan.qingganmianshi.service.UserService;
 import com.qinggan.qingganmianshi.common.ErrorCode;
 import com.qinggan.qingganmianshi.model.dto.user.UserQueryRequest;
@@ -112,7 +114,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
         // 3. 记录用户的登录态
-        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
+        //request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
+
+        //使用Sa-Token登录，并根据device实现同端互斥登录
+        StpUtil.login(user.getId(), DeviceUtils.getRequestDevice(request));
+        StpUtil.getSession().set(UserConstant.USER_LOGIN_STATE,user);
         return this.getLoginUserVO(user);
     }
 
@@ -157,14 +163,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public User getLoginUser(HttpServletRequest request) {
         // 先判断是否已登录
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
+        Object loginId = StpUtil.getLoginIdDefaultNull();
+        if(loginId == null){
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
+        //Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+//        User currentUser = (User) userObj;
+//        if (currentUser == null || currentUser.getId() == null) {
+//            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+//        }
         // 从数据库查询（追求性能的话可以注释，直接走缓存）
-        long userId = currentUser.getId();
-        currentUser = this.getById(userId);
+//        long userId = currentUser.getId();
+        User currentUser = this.getById((Long) loginId);
         if (currentUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
@@ -199,8 +209,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public boolean isAdmin(HttpServletRequest request) {
         // 仅管理员可查询
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User user = (User) userObj;
+        //Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        //User user = (User) userObj;
+        User user = (User) StpUtil.getSession().get(UserConstant.USER_LOGIN_STATE);
         return isAdmin(user);
     }
 
@@ -216,11 +227,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public boolean userLogout(HttpServletRequest request) {
-        if (request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE) == null) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "未登录");
-        }
-        // 移除登录态
-        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
+        StpUtil.checkLogin();
+        StpUtil.logout();
+//        if (request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE) == null) {
+//            throw new BusinessException(ErrorCode.OPERATION_ERROR, "未登录");
+//        }
+//        // 移除登录态
+//        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
         return true;
     }
 
