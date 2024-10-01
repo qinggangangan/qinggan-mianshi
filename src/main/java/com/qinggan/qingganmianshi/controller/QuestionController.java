@@ -1,6 +1,7 @@
 package com.qinggan.qingganmianshi.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.EntryType;
@@ -15,6 +16,7 @@ import com.qinggan.qingganmianshi.common.DeleteRequest;
 import com.qinggan.qingganmianshi.common.ErrorCode;
 import com.qinggan.qingganmianshi.common.ResultUtils;
 import com.qinggan.qingganmianshi.constant.UserConstant;
+import com.qinggan.qingganmianshi.detectSpiders.DetectSpidersWithCountManager;
 import com.qinggan.qingganmianshi.exception.BusinessException;
 import com.qinggan.qingganmianshi.exception.ThrowUtils;
 import com.qinggan.qingganmianshi.model.dto.question.*;
@@ -48,6 +50,9 @@ public class QuestionController {
 
     @Resource
     private QuestionBankQuestionService questionBankQuestionService;
+
+    @Resource
+    private DetectSpidersWithCountManager detectSpidersWithCountManager;
 
     // region 增删改查
 
@@ -150,6 +155,9 @@ public class QuestionController {
     @GetMapping("/get/vo")
     public BaseResponse<QuestionVO> getQuestionVOById(long id, HttpServletRequest request) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        //处置爬虫逻辑
+        User loginUser = userService.getLoginUser(request);
+        detectSpidersWithCountManager.crawlerDetect(loginUser.getId());
         // 查询数据库
         Question question = questionService.getById(id);
         ThrowUtils.throwIf(question == null, ErrorCode.NOT_FOUND_ERROR);
